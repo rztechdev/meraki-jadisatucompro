@@ -7,18 +7,19 @@
 #    ~/jadisatu/     ← kode Laravel (.env, storage, vendor)
 #    ~/public_html/  ← document root (isi folder public/)
 #
-#  Tidak perlu konfigurasi manual: semua path dari $HOME.
+#  Path di-hardcode ke /home/jadj3934 — beberapa server cPanel tidak
+#  menyertakan $HOME saat menjalankan task deploy, jadi lebih aman pasti.
 #
-#  📋 SEMUA OUTPUT DITULIS KE  ~/deploy.log
+#  📋 SEMUA OUTPUT DITULIS KE  /home/jadj3934/deploy.log
 #     Buka lewat cPanel File Manager kalau deploy bermasalah.
 # ══════════════════════════════════════════════════════════════════════
 
 deployment:
   tasks:
     # ─── Konfigurasi + deteksi path ─────────────────────────────────
-    - export APPDIR=$HOME/jadisatu
-    - export PUBDIR=$HOME/public_html
-    - export LOG=$HOME/deploy.log
+    - export APPDIR=/home/jadj3934/jadisatu
+    - export PUBDIR=/home/jadj3934/public_html
+    - export LOG=/home/jadj3934/deploy.log
     - export PHP=$(command -v php || echo /usr/local/bin/php)
     - export COMPOSER=$(command -v composer || echo /opt/cpanel/composer/bin/composer)
 
