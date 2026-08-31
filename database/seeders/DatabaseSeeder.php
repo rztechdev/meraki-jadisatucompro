@@ -20,6 +20,17 @@ class DatabaseSeeder extends Seeder
         // Admin user — kredensial diambil dari .env (lihat config/admin.php).
         // updateOrCreate: .env jadi sumber kebenaran, jadi mengganti
         // ADMIN_PASSWORD lalu seed ulang akan ikut memperbarui password.
+        //
+        // Pengaman: kalau ADMIN_PASSWORD kosong, seeder BERHENTI. Tanpa ini,
+        // seed ulang saat .env belum lengkap akan menimpa password admin
+        // dengan nilai default yang lemah tanpa peringatan apa pun.
+        if (blank(config('admin.password'))) {
+            throw new \RuntimeException(
+                'ADMIN_PASSWORD belum diisi di .env. Seeder dibatalkan supaya '
+                . 'password admin yang sudah ada tidak tertimpa nilai kosong/lemah.'
+            );
+        }
+
         User::updateOrCreate(
             ['email' => config('admin.email')],
             [

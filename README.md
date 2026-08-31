@@ -38,6 +38,13 @@ npm run dev
 
 Akun admin dibuat dari `ADMIN_EMAIL` dan `ADMIN_PASSWORD` di `.env`.
 
+> `ADMIN_PASSWORD` **wajib diisi** — tidak ada nilai default. Kalau kosong,
+> seeder sengaja berhenti dengan error supaya password admin yang sudah ada
+> tidak tertimpa nilai lemah.
+>
+> `.env` adalah sumber kebenaran: mengubah `ADMIN_PASSWORD` lalu menjalankan
+> `php artisan db:seed` akan ikut memperbarui password admin di database.
+
 ## Deployment
 
 Lihat [DEPLOY.md](DEPLOY.md) untuk panduan lengkap deploy ke cPanel.
