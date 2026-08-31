@@ -15,10 +15,11 @@ deployment:
     # 2. Arahkan index.php di public_html ke folder repo Laravel
     - /bin/sed -i "s|__DIR__\.'/\.\./|__DIR__.'/../repositories/meraki-jadisatucompro/|g" $PUBDIR/index.php
 
-    # 3. Symlink storage publik & Set permission
+    # 3. Buat folder storage fisik di public_html (bukan symlink agar tidak diblokir Apache)
     - /bin/rm -rf $PUBDIR/storage
-    - /bin/ln -sfn $APPDIR/storage/app/public $PUBDIR/storage
-    - /bin/chmod -R 775 $APPDIR/storage $APPDIR/bootstrap/cache
+    - /bin/mkdir -p $PUBDIR/storage
+    - /bin/cp -R $APPDIR/storage/app/public/. $PUBDIR/storage/ 2>/dev/null || true
+    - /bin/chmod -R 775 $APPDIR/storage $PUBDIR/storage $APPDIR/bootstrap/cache
 
     # 4. Bersihkan cache
     - cd $APPDIR && $PHP artisan optimize:clear
