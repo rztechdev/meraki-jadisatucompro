@@ -1,0 +1,20 @@
+@import "tailwindcss";
+
+@layer base {
+    * { box-sizing: border-box; }
+    body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+}
+
+/* SweetAlert Square / Tanpa Radius */
+.swal2-popup,
+.swal2-modal,
+.swal2-confirm,
+.swal2-cancel,
+.swal2-deny,
+.swal2-input,
+.swal2-textarea,
+.swal2-select,
+.swal2-icon {
+    border-radius: 0px !important;
+}
+

@@ -1,0 +1,73 @@
+---
+# ══════════════════════════════════════════════════════════════════════
+#  JADISATU — cPanel Git Deployment
+#  Domain: https://jadisatukreatif.com
+#
+#  Struktur di server (aplikasi DI LUAR public_html — lebih aman):
+#    /home/USER/jadisatu/     ← kode Laravel (.env, storage, vendor)
+#    /home/USER/public_html/  ← document root (isi folder public/)
+#
+#  ⚠️  SEBELUM DEPLOY PERTAMA:
+#      Ganti nilai CPUSER di bawah dengan username cPanel Anda.
+# ══════════════════════════════════════════════════════════════════════
+
+deployment:
+  tasks:
+    # ─── Konfigurasi ────────────────────────────────────────────────
+    - export CPUSER=jadisatu
+    - export APPDIR=/home/$CPUSER/jadisatu
+    - export PUBDIR=/home/$CPUSER/public_html
+    - export PHP=/usr/local/bin/php
+    - export COMPOSER=/opt/cpanel/composer/bin/composer
+
+    # ─── Siapkan folder tujuan ──────────────────────────────────────
+    - /bin/mkdir -p $APPDIR
+    - /bin/mkdir -p $PUBDIR
+    - /bin/mkdir -p $APPDIR/storage/app/public
+    - /bin/mkdir -p $APPDIR/storage/framework/cache/data
+    - /bin/mkdir -p $APPDIR/storage/framework/sessions
+    - /bin/mkdir -p $APPDIR/storage/framework/views
+    - /bin/mkdir -p $APPDIR/storage/logs
+    - /bin/mkdir -p $APPDIR/bootstrap/cache
+
+    # ─── Salin kode aplikasi ────────────────────────────────────────
+    #  storage/ dan .env SENGAJA tidak disalin — data upload & kredensial
+    #  di server harus tetap utuh setiap kali deploy.
+    - /bin/cp -R app $APPDIR/
+    - /bin/cp -R config $APPDIR/
+    - /bin/cp -R database $APPDIR/
+    - /bin/cp -R resources $APPDIR/
+    - /bin/cp -R routes $APPDIR/
+    - /bin/cp -R bootstrap/app.php bootstrap/providers.php $APPDIR/bootstrap/
+    - /bin/cp artisan composer.json composer.lock $APPDIR/
+
+    # ─── Salin isi public/ ke document root ─────────────────────────
+    - /bin/cp -R public/. $PUBDIR/
+
+    # ─── Arahkan index.php ke folder aplikasi ───────────────────────
+    #  __DIR__.'/../vendor'  →  __DIR__.'/../jadisatu/vendor'
+    - /bin/sed -i "s|__DIR__\.'/\.\./|__DIR__.'/../jadisatu/|g" $PUBDIR/index.php
+
+    # ─── Symlink storage publik (untuk foto event yang di-upload) ───
+    - /bin/rm -rf $PUBDIR/storage
+    - /bin/ln -sfn $APPDIR/storage/app/public $PUBDIR/storage
+
+    # ─── Dependency PHP ─────────────────────────────────────────────
+    - cd $APPDIR && $PHP $COMPOSER install --no-dev --optimize-autoloader --no-interaction
+
+    # ─── Permission ─────────────────────────────────────────────────
+    - /bin/chmod -R 775 $APPDIR/storage $APPDIR/bootstrap/cache
+    - /bin/find $PUBDIR -type d -exec /bin/chmod 755 {} \;
+    - /bin/find $PUBDIR -type f -exec /bin/chmod 644 {} \;
+
+    # ─── Migrasi database ───────────────────────────────────────────
+    #  Idempoten: hanya menjalankan migrasi yang belum pernah jalan.
+    - cd $APPDIR && $PHP artisan migrate --force
+
+    # ─── Bangun ulang cache ─────────────────────────────────────────
+    - cd $APPDIR && $PHP artisan optimize:clear
+    - cd $APPDIR && $PHP artisan config:cache
+    - cd $APPDIR && $PHP artisan route:cache
+    - cd $APPDIR && $PHP artisan view:cache
+
+    - echo "✅ Deploy JADISATU selesai — https://jadisatukreatif.com"
