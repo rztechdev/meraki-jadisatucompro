@@ -1,5 +1,11 @@
 * text=auto eol=lf
 
+# vendor/ dikecualikan dari normalisasi line-ending. Tanpa ini, checkout
+# di server bisa langsung dianggap "uncommitted changes" oleh git karena
+# ribuan file di vendor/ dinormalisasi ulang saat checkout — dan itu
+# yang membuat cPanel Git Version Control menolak deploy.
+vendor/** -text
+
 *.blade.php diff=html
 *.css diff=css
 *.html diff=html
