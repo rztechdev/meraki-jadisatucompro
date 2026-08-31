@@ -13,20 +13,24 @@
 /.zed
 /auth.json
 /node_modules
-/public/hot
-/public/storage
 /database/*.sqlite
 /database/*.sqlite-journal
 
-# CATATAN: /public/build SENGAJA tidak di-ignore.
-# Shared hosting cPanel tidak punya Node.js, jadi hasil `npm run build`
-# harus ikut ter-commit supaya CSS/JS terkirim saat deploy.
+# CATATAN: vendor/ dan public/ TIDAK di-track individual lagi.
+# Ribuan file kecil di vendor/ bikin checkout di cPanel gampang dianggap
+# "uncommitted changes" (git status kotor) dan menolak deploy. Sekarang
+# keduanya dikemas jadi vendor.tar.gz dan public.tar.gz (lihat DEPLOY.md),
+# dan .cpanel.yml tinggal mengekstraknya di server.
+#
+# Untuk update salah satunya:
+#   tar -czf vendor.tar.gz -C vendor .
+#   tar -czf public.tar.gz -C public --exclude=storage --exclude=hot .
+/vendor
+/public/*
+!/public/.gitkeep
+
 /storage/*.key
 /storage/pail
-# CATATAN: /vendor SENGAJA tidak di-ignore.
-# Composer di shared hosting cPanel terlalu lambat / sering timeout,
-# jadi dependency production ikut ter-commit dan deploy tinggal menyalin.
-# Isinya hasil `composer install --no-dev --optimize-autoloader`.
 Homestead.json
 Homestead.yaml
 Thumbs.db

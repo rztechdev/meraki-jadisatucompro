@@ -53,8 +53,13 @@ deployment:
     - /bin/cp artisan composer.json composer.lock $APPDIR/ >> $LOG 2>&1
     - echo "[OK] kode aplikasi tersalin" >> $LOG
 
-    # ─── Salin isi public/ ke document root ─────────────────────────
-    - /bin/cp -R public/. $PUBDIR/ >> $LOG 2>&1
+    # ─── Ekstrak public.tar.gz ke document root ─────────────────────
+    #  Bukan cp -R lagi: ratusan file kecil di public/ (terutama
+    #  public/build) bikin checkout di server rawan dianggap "dirty" dan
+    #  ditolak cPanel. Satu file arsip jauh lebih stabil dan lebih cepat.
+    - echo "--- ekstrak public.tar.gz ---" >> $LOG
+    - tar -xzf public.tar.gz -C $PUBDIR >> $LOG 2>&1
+    - test -f $PUBDIR/index.php && echo "[OK] public.tar.gz terekstrak" >> $LOG || echo "[GAGAL] public.tar.gz gagal ekstrak" >> $LOG
 
     # ─── Buang halaman bawaan cPanel ────────────────────────────────
     #  Apache mendahulukan index.html daripada index.php, jadi selama
@@ -75,12 +80,13 @@ deployment:
     - /bin/chmod -R 775 $APPDIR/storage $APPDIR/bootstrap/cache
 
     # ─── Dependency PHP ─────────────────────────────────────────────
-    #  vendor/ ikut ter-commit di repo, jadi cukup disalin — composer di
-    #  shared hosting terlalu lambat dan sering timeout. Kalau vendor/
-    #  ternyata tidak ada di repo, jatuh kembali ke composer install.
+    #  vendor.tar.gz ikut ter-commit di repo — bukan folder vendor/ biasa,
+    #  supaya checkout di server tidak perlu menyentuh ribuan file kecil.
+    #  Kalau arsipnya tidak ada, jatuh kembali ke composer install.
     - echo "" >> $LOG
-    - test -d vendor && echo "--- salin vendor dari repo ---" >> $LOG || echo "--- vendor tidak ada di repo, jalankan composer ---" >> $LOG
-    - test -d vendor && /bin/cp -R vendor $APPDIR/ >> $LOG 2>&1 || (cd $APPDIR && $PHP $COMPOSER install --no-dev --optimize-autoloader --no-interaction >> $LOG 2>&1)
+    - test -f vendor.tar.gz && echo "--- ekstrak vendor.tar.gz ---" >> $LOG || echo "--- vendor.tar.gz tidak ada, jalankan composer ---" >> $LOG
+    - /bin/mkdir -p $APPDIR/vendor
+    - test -f vendor.tar.gz && tar -xzf vendor.tar.gz -C $APPDIR/vendor >> $LOG 2>&1 || (cd $APPDIR && $PHP $COMPOSER install --no-dev --optimize-autoloader --no-interaction >> $LOG 2>&1)
     - test -f $APPDIR/vendor/autoload.php && echo "[OK] vendor terpasang" >> $LOG || echo "[GAGAL] vendor tidak terpasang — lihat pesan di atas" >> $LOG
 
     # ─── Database ───────────────────────────────────────────────────
