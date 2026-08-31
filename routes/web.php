@@ -18,6 +18,37 @@ Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/contact', fn () => redirect('/#contact'));
 Route::post('/contact', [ContactController::class, 'store'])->name('contact.send')->middleware('throttle:10,1');
 
+// Temporary Helper Route for Setup without Terminal
+Route::get('/install-db-secret', function () {
+    $results = [];
+    try {
+        \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+        $results[] = "=== MIGRATE ===\n" . \Illuminate\Support\Facades\Artisan::output();
+
+        \Illuminate\Support\Facades\Artisan::call('db:seed', ['--force' => true]);
+        $results[] = "=== SEED ===\n" . \Illuminate\Support\Facades\Artisan::output();
+
+        \Illuminate\Support\Facades\Artisan::call('storage:link');
+        $results[] = "=== STORAGE LINK ===\n" . \Illuminate\Support\Facades\Artisan::output();
+
+        \Illuminate\Support\Facades\Artisan::call('optimize:clear');
+        $results[] = "=== OPTIMIZE CLEAR ===\n" . \Illuminate\Support\Facades\Artisan::output();
+
+        return '<div style="font-family:sans-serif;padding:30px;background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;border-radius:8px;max-width:800px;margin:40px auto;">
+            <h2 style="margin-top:0;">🎉 Setup & Migrasi Sukses!</h2>
+            <pre style="background:#fff;padding:15px;border-radius:6px;border:1px solid #dcfce7;overflow-x:auto;">' . htmlspecialchars(implode("\n\n", $results)) . '</pre>
+            <p style="margin-top:20px;"><a href="/" style="display:inline-block;padding:10px 20px;background:#16a34a;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold;">👉 Buka Homepage Website</a></p>
+        </div>';
+    } catch (\Throwable $e) {
+        return '<div style="font-family:sans-serif;padding:30px;background:#fef2f2;color:#991b1b;border:1px solid #fecaca;border-radius:8px;max-width:800px;margin:40px auto;">
+            <h2 style="margin-top:0;">❌ Setup Gagal</h2>
+            <p><strong>Pesan Error:</strong> ' . htmlspecialchars($e->getMessage()) . '</p>
+            <p><strong>File:</strong> ' . htmlspecialchars($e->getFile()) . ' baris ' . $e->getLine() . '</p>
+            <pre style="background:#fff;padding:15px;border-radius:6px;border:1px solid #fee2e2;overflow-x:auto;">' . htmlspecialchars($e->getTraceAsString()) . '</pre>
+        </div>';
+    }
+});
+
 // SEO Sitemap for Google Search Console
 Route::get('/sitemap.xml', function () {
     $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";

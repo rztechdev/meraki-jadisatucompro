@@ -11,9 +11,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        // Sesuaikan public_path bila aplikasi dideploy dengan public_html terpisah di luar folder aplikasi
-        if (!file_exists(base_path('public/index.php')) && is_dir(base_path('../public_html'))) {
-            $this->app->usePublicPath(realpath(base_path('../public_html')));
+        // Sesuaikan public_path bila aplikasi dideploy di cPanel dengan public_html
+        $cpanelPublicHtml = realpath(base_path('../../public_html')) ?: realpath(base_path('../public_html'));
+        if ($cpanelPublicHtml && is_dir($cpanelPublicHtml) && !file_exists(base_path('public/hot'))) {
+            $this->app->usePublicPath($cpanelPublicHtml);
         }
     }
 
