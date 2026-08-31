@@ -44,21 +44,30 @@ Route::get('/install-db-secret', function () {
         \Illuminate\Support\Facades\Artisan::call('db:seed', ['--force' => true]);
         $results[] = "=== SEED ===\n" . \Illuminate\Support\Facades\Artisan::output();
 
-        // Symlink storage dengan proteksi function_exists
-        if (function_exists('symlink')) {
-            $target = storage_path('app/public');
-            $link = public_path('storage');
-            if (!file_exists($link)) {
-                @symlink($target, $link);
-            }
-            $results[] = "=== STORAGE LINK ===\nSymlink created: OK";
-        } else {
-            $storageDir = public_path('storage');
-            if (!is_dir($storageDir)) {
-                @mkdir($storageDir, 0755, true);
-            }
-            $results[] = "=== STORAGE DIRECTORY ===\nDirect storage directory created: OK";
+        // Sinkronisasi folder storage langsung ke public_html/storage
+        $src = storage_path('app/public');
+        $dst = public_path('storage');
+        if (!is_dir($dst)) {
+            @mkdir($dst, 0755, true);
         }
+        if (is_dir($src)) {
+            $iterator = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($src, RecursiveDirectoryIterator::SKIP_DOTS),
+                RecursiveIteratorIterator::SELF_FIRST
+            );
+            foreach ($iterator as $item) {
+                $sub = $iterator->getSubPathName();
+                $target = $dst . DIRECTORY_SEPARATOR . $sub;
+                if ($item->isDir()) {
+                    if (!is_dir($target)) {
+                        @mkdir($target, 0755, true);
+                    }
+                } else {
+                    @copy($item->getPathname(), $target);
+                }
+            }
+        }
+        $results[] = "=== STORAGE DIRECTORY ===\nDirect storage directory synced: OK";
 
         \Illuminate\Support\Facades\Artisan::call('optimize:clear');
         $results[] = "=== OPTIMIZE CLEAR ===\n" . \Illuminate\Support\Facades\Artisan::output();
