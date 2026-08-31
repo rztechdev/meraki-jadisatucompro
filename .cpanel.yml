@@ -4,24 +4,35 @@
 #  Domain: https://jadisatukreatif.com
 #
 #  Struktur di server (aplikasi DI LUAR public_html — lebih aman):
-#    /home/USER/jadisatu/     ← kode Laravel (.env, storage, vendor)
-#    /home/USER/public_html/  ← document root (isi folder public/)
+#    ~/jadisatu/     ← kode Laravel (.env, storage, vendor)
+#    ~/public_html/  ← document root (isi folder public/)
 #
-#  Tidak perlu konfigurasi manual: path diambil dari $HOME, yang otomatis
-#  bernilai /home/USERNAME saat cPanel menjalankan deployment.
+#  Tidak perlu konfigurasi manual: semua path dari $HOME.
+#
+#  📋 SEMUA OUTPUT DITULIS KE  ~/deploy.log
+#     Buka lewat cPanel File Manager kalau deploy bermasalah.
 # ══════════════════════════════════════════════════════════════════════
 
 deployment:
   tasks:
-    # ─── Konfigurasi ────────────────────────────────────────────────
+    # ─── Konfigurasi + deteksi path ─────────────────────────────────
     - export APPDIR=$HOME/jadisatu
     - export PUBDIR=$HOME/public_html
-    - export PHP=/usr/local/bin/php
-    - export COMPOSER=/opt/cpanel/composer/bin/composer
+    - export LOG=$HOME/deploy.log
+    - export PHP=$(command -v php || echo /usr/local/bin/php)
+    - export COMPOSER=$(command -v composer || echo /opt/cpanel/composer/bin/composer)
+
+    # ─── Mulai log ──────────────────────────────────────────────────
+    - date "+=== DEPLOY %Y-%m-%d %H:%M:%S ===" > $LOG
+    - echo "HOME     = $HOME"                  >> $LOG
+    - echo "APPDIR   = $APPDIR"                >> $LOG
+    - echo "PUBDIR   = $PUBDIR"                >> $LOG
+    - echo "PHP      = $PHP"                   >> $LOG
+    - $PHP -v 2>&1 | head -1                   >> $LOG
+    - echo "COMPOSER = $COMPOSER"              >> $LOG
 
     # ─── Siapkan folder tujuan ──────────────────────────────────────
-    - /bin/mkdir -p $APPDIR
-    - /bin/mkdir -p $PUBDIR
+    - /bin/mkdir -p $APPDIR $PUBDIR
     - /bin/mkdir -p $APPDIR/storage/app/public
     - /bin/mkdir -p $APPDIR/storage/framework/cache/data
     - /bin/mkdir -p $APPDIR/storage/framework/sessions
@@ -29,50 +40,63 @@ deployment:
     - /bin/mkdir -p $APPDIR/storage/logs
     - /bin/mkdir -p $APPDIR/bootstrap/cache
 
+    # ─── Cek .env (wajib, di-upload manual sekali) ───────────────────
+    - echo "" >> $LOG
+    - test -f $APPDIR/.env && echo "[OK] .env ditemukan" >> $LOG || echo "[GAGAL] .env TIDAK ADA di $APPDIR/.env — upload dulu lewat File Manager!" >> $LOG
+
     # ─── Salin kode aplikasi ────────────────────────────────────────
     #  storage/ dan .env SENGAJA tidak disalin — data upload & kredensial
     #  di server harus tetap utuh setiap kali deploy.
-    - /bin/cp -R app $APPDIR/
-    - /bin/cp -R config $APPDIR/
-    - /bin/cp -R database $APPDIR/
-    - /bin/cp -R resources $APPDIR/
-    - /bin/cp -R routes $APPDIR/
-    - /bin/cp -R bootstrap/app.php bootstrap/providers.php $APPDIR/bootstrap/
-    - /bin/cp artisan composer.json composer.lock $APPDIR/
+    - /bin/cp -R app config database resources routes $APPDIR/ >> $LOG 2>&1
+    - /bin/cp bootstrap/app.php bootstrap/providers.php $APPDIR/bootstrap/ >> $LOG 2>&1
+    - /bin/cp artisan composer.json composer.lock $APPDIR/ >> $LOG 2>&1
+    - echo "[OK] kode aplikasi tersalin" >> $LOG
 
     # ─── Salin isi public/ ke document root ─────────────────────────
-    - /bin/cp -R public/. $PUBDIR/
+    - /bin/cp -R public/. $PUBDIR/ >> $LOG 2>&1
 
     # ─── Buang halaman bawaan cPanel ────────────────────────────────
     #  Apache mendahulukan index.html daripada index.php, jadi selama
-    #  file bawaan ini ada, domain akan terus menampilkan halaman default
-    #  meski Laravel sudah ter-deploy dengan benar.
-    - /bin/rm -f $PUBDIR/index.html $PUBDIR/default.html $PUBDIR/cgi-bin/index.html
+    #  file bawaan ini ada, domain akan terus menampilkan halaman default.
+    - /bin/rm -f $PUBDIR/index.html $PUBDIR/default.html
 
     # ─── Arahkan index.php ke folder aplikasi ───────────────────────
     #  __DIR__.'/../vendor'  →  __DIR__.'/../jadisatu/vendor'
     - /bin/sed -i "s|__DIR__\.'/\.\./|__DIR__.'/../jadisatu/|g" $PUBDIR/index.php
+    - /bin/grep -c "jadisatu/vendor" $PUBDIR/index.php >> $LOG 2>&1
+    - echo "[OK] public_html terisi + index.php diarahkan" >> $LOG
 
-    # ─── Symlink storage publik (untuk foto event yang di-upload) ───
+    # ─── Symlink storage publik (foto event yang di-upload) ─────────
     - /bin/rm -rf $PUBDIR/storage
     - /bin/ln -sfn $APPDIR/storage/app/public $PUBDIR/storage
 
-    # ─── Dependency PHP ─────────────────────────────────────────────
-    - cd $APPDIR && $PHP $COMPOSER install --no-dev --optimize-autoloader --no-interaction
-
     # ─── Permission ─────────────────────────────────────────────────
     - /bin/chmod -R 775 $APPDIR/storage $APPDIR/bootstrap/cache
-    - /bin/find $PUBDIR -type d -exec /bin/chmod 755 {} \;
-    - /bin/find $PUBDIR -type f -exec /bin/chmod 644 {} \;
 
-    # ─── Migrasi database ───────────────────────────────────────────
-    #  Idempoten: hanya menjalankan migrasi yang belum pernah jalan.
-    - cd $APPDIR && $PHP artisan migrate --force
+    # ─── Dependency PHP ─────────────────────────────────────────────
+    - echo "" >> $LOG
+    - echo "--- composer install ---" >> $LOG
+    - cd $APPDIR && $PHP $COMPOSER install --no-dev --optimize-autoloader --no-interaction >> $LOG 2>&1
+    - test -f $APPDIR/vendor/autoload.php && echo "[OK] vendor terpasang" >> $LOG || echo "[GAGAL] composer install gagal — lihat pesan di atas" >> $LOG
+
+    # ─── Database ───────────────────────────────────────────────────
+    #  Keduanya idempoten: aman dijalankan berulang, tidak menduplikasi
+    #  data dan tidak menimpa konten yang sudah diedit lewat admin panel.
+    - echo "" >> $LOG
+    - echo "--- migrate ---" >> $LOG
+    - cd $APPDIR && $PHP artisan migrate --force >> $LOG 2>&1
+    - echo "--- seed ---" >> $LOG
+    - cd $APPDIR && $PHP artisan db:seed --force >> $LOG 2>&1
 
     # ─── Bangun ulang cache ─────────────────────────────────────────
-    - cd $APPDIR && $PHP artisan optimize:clear
-    - cd $APPDIR && $PHP artisan config:cache
-    - cd $APPDIR && $PHP artisan route:cache
-    - cd $APPDIR && $PHP artisan view:cache
+    - echo "" >> $LOG
+    - cd $APPDIR && $PHP artisan optimize:clear >> $LOG 2>&1
+    - cd $APPDIR && $PHP artisan config:cache >> $LOG 2>&1
+    - cd $APPDIR && $PHP artisan route:cache >> $LOG 2>&1
+    - cd $APPDIR && $PHP artisan view:cache >> $LOG 2>&1
 
-    - echo "✅ Deploy JADISATU selesai — https://jadisatukreatif.com"
+    # ─── Ringkasan ──────────────────────────────────────────────────
+    - echo "" >> $LOG
+    - echo "--- isi public_html ---" >> $LOG
+    - /bin/ls $PUBDIR >> $LOG 2>&1
+    - date "+=== SELESAI %H:%M:%S ===" >> $LOG
