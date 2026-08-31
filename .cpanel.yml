@@ -74,10 +74,13 @@ deployment:
     - /bin/chmod -R 775 $APPDIR/storage $APPDIR/bootstrap/cache
 
     # ─── Dependency PHP ─────────────────────────────────────────────
+    #  vendor/ ikut ter-commit di repo, jadi cukup disalin — composer di
+    #  shared hosting terlalu lambat dan sering timeout. Kalau vendor/
+    #  ternyata tidak ada di repo, jatuh kembali ke composer install.
     - echo "" >> $LOG
-    - echo "--- composer install ---" >> $LOG
-    - cd $APPDIR && $PHP $COMPOSER install --no-dev --optimize-autoloader --no-interaction >> $LOG 2>&1
-    - test -f $APPDIR/vendor/autoload.php && echo "[OK] vendor terpasang" >> $LOG || echo "[GAGAL] composer install gagal — lihat pesan di atas" >> $LOG
+    - test -d vendor && echo "--- salin vendor dari repo ---" >> $LOG || echo "--- vendor tidak ada di repo, jalankan composer ---" >> $LOG
+    - test -d vendor && /bin/cp -R vendor $APPDIR/ >> $LOG 2>&1 || (cd $APPDIR && $PHP $COMPOSER install --no-dev --optimize-autoloader --no-interaction >> $LOG 2>&1)
+    - test -f $APPDIR/vendor/autoload.php && echo "[OK] vendor terpasang" >> $LOG || echo "[GAGAL] vendor tidak terpasang — lihat pesan di atas" >> $LOG
 
     # ─── Database ───────────────────────────────────────────────────
     #  Keduanya idempoten: aman dijalankan berulang, tidak menduplikasi

@@ -23,7 +23,10 @@
 # harus ikut ter-commit supaya CSS/JS terkirim saat deploy.
 /storage/*.key
 /storage/pail
-/vendor
+# CATATAN: /vendor SENGAJA tidak di-ignore.
+# Composer di shared hosting cPanel terlalu lambat / sering timeout,
+# jadi dependency production ikut ter-commit dan deploy tinggal menyalin.
+# Isinya hasil `composer install --no-dev --optimize-autoloader`.
 Homestead.json
 Homestead.yaml
 Thumbs.db
