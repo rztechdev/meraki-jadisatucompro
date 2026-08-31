@@ -18,6 +18,22 @@ Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/contact', fn () => redirect('/#contact'));
 Route::post('/contact', [ContactController::class, 'store'])->name('contact.send')->middleware('throttle:10,1');
 
+// Fallback Route untuk melayani file gambar storage di hosting tanpa symlink
+Route::get('/storage/{path}', function (string $path) {
+    $paths = [
+        storage_path('app/public/' . $path),
+        public_path('storage/' . $path),
+        base_path('storage/app/public/' . $path),
+    ];
+    foreach ($paths as $file) {
+        if (file_exists($file) && !is_dir($file)) {
+            $mime = mime_content_type($file) ?: 'application/octet-stream';
+            return response()->file($file, ['Content-Type' => $mime]);
+        }
+    }
+    abort(404);
+})->where('path', '.*');
+
 // Temporary Helper Route for Setup without Terminal
 Route::get('/install-db-secret', function () {
     $results = [];
