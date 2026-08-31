@@ -7,16 +7,15 @@
 #    /home/USER/jadisatu/     ← kode Laravel (.env, storage, vendor)
 #    /home/USER/public_html/  ← document root (isi folder public/)
 #
-#  ⚠️  SEBELUM DEPLOY PERTAMA:
-#      Ganti nilai CPUSER di bawah dengan username cPanel Anda.
+#  Tidak perlu konfigurasi manual: path diambil dari $HOME, yang otomatis
+#  bernilai /home/USERNAME saat cPanel menjalankan deployment.
 # ══════════════════════════════════════════════════════════════════════
 
 deployment:
   tasks:
     # ─── Konfigurasi ────────────────────────────────────────────────
-    - export CPUSER=jadisatu
-    - export APPDIR=/home/$CPUSER/jadisatu
-    - export PUBDIR=/home/$CPUSER/public_html
+    - export APPDIR=$HOME/jadisatu
+    - export PUBDIR=$HOME/public_html
     - export PHP=/usr/local/bin/php
     - export COMPOSER=/opt/cpanel/composer/bin/composer
 
@@ -43,6 +42,12 @@ deployment:
 
     # ─── Salin isi public/ ke document root ─────────────────────────
     - /bin/cp -R public/. $PUBDIR/
+
+    # ─── Buang halaman bawaan cPanel ────────────────────────────────
+    #  Apache mendahulukan index.html daripada index.php, jadi selama
+    #  file bawaan ini ada, domain akan terus menampilkan halaman default
+    #  meski Laravel sudah ter-deploy dengan benar.
+    - /bin/rm -f $PUBDIR/index.html $PUBDIR/default.html $PUBDIR/cgi-bin/index.html
 
     # ─── Arahkan index.php ke folder aplikasi ───────────────────────
     #  __DIR__.'/../vendor'  →  __DIR__.'/../jadisatu/vendor'
