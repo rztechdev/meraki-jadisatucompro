@@ -28,8 +28,13 @@ Route::get('/install-db-secret', function () {
         \Illuminate\Support\Facades\Artisan::call('db:seed', ['--force' => true]);
         $results[] = "=== SEED ===\n" . \Illuminate\Support\Facades\Artisan::output();
 
-        \Illuminate\Support\Facades\Artisan::call('storage:link');
-        $results[] = "=== STORAGE LINK ===\n" . \Illuminate\Support\Facades\Artisan::output();
+        // Symlink storage tanpa memanggil fungsi exec() yang di-disable hosting
+        $target = storage_path('app/public');
+        $link = public_path('storage');
+        if (!file_exists($link)) {
+            @symlink($target, $link);
+        }
+        $results[] = "=== STORAGE LINK ===\nStorage linked: " . (file_exists($link) ? 'OK' : 'Skipped / already exists');
 
         \Illuminate\Support\Facades\Artisan::call('optimize:clear');
         $results[] = "=== OPTIMIZE CLEAR ===\n" . \Illuminate\Support\Facades\Artisan::output();
