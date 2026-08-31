@@ -5,6 +5,43 @@ use Illuminate\Http\Request;
 
 define('LARAVEL_START', microtime(true));
 
+// Direct static file server for /storage/... (bypasses symlink and framework cache)
+if (isset($_SERVER['REQUEST_URI']) && str_starts_with($_SERVER['REQUEST_URI'], '/storage/')) {
+    $uriPath = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+    $subPath = ltrim(preg_replace('#^/storage/#', '', $uriPath), '/');
+    if ($subPath) {
+        $candidates = [
+            __DIR__ . '/storage/' . $subPath,
+            __DIR__ . '/../repositories/meraki-jadisatucompro/storage/app/public/' . $subPath,
+            __DIR__ . '/../repositories/meraki-jadisatucompro/public/storage/' . $subPath,
+            '/home/jadj3934/repositories/meraki-jadisatucompro/storage/app/public/' . $subPath,
+            '/home/jadj3934/repositories/meraki-jadisatucompro/public/storage/' . $subPath,
+            '/home/jadj3934/public_html/storage/' . $subPath,
+        ];
+        foreach ($candidates as $filePath) {
+            if (file_exists($filePath) && is_file($filePath)) {
+                $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+                $mimes = [
+                    'jpg'  => 'image/jpeg',
+                    'jpeg' => 'image/jpeg',
+                    'png'  => 'image/png',
+                    'gif'  => 'image/gif',
+                    'webp' => 'image/webp',
+                    'svg'  => 'image/svg+xml',
+                    'ico'  => 'image/x-icon',
+                    'pdf'  => 'application/pdf',
+                ];
+                $contentType = $mimes[$ext] ?? (@mime_content_type($filePath) ?: 'application/octet-stream');
+                header('Content-Type: ' . $contentType);
+                header('Content-Length: ' . filesize($filePath));
+                header('Cache-Control: public, max-age=31536000');
+                readfile($filePath);
+                exit;
+            }
+        }
+    }
+}
+
 // Auto-detect lokasi folder aplikasi Laravel (baik di local, cPanel public_html, atau subfolder)
 $possiblePaths = [
     __DIR__ . '/../repositories/meraki-jadisatucompro',
