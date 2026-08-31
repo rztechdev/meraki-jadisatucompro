@@ -1,112 +1,39 @@
 ---
-# ══════════════════════════════════════════════════════════════════════
-#  JADISATU — cPanel Git Deployment
-#  Domain: https://jadisatukreatif.com
+# ============================================================
+#  cPanel Git Deployment - rz-portal-client
+#  (portalclient.rzdigitalcreative.my.id)
+# ------------------------------------------------------------
+#  Cara pakai:
+#   1. Di lokal: build asset -> `npm run build`, lalu commit & push.
+#   2. Di cPanel > Git Version Control > Manage > Pull (Update from Remote)
+#      lalu klik "Deploy HEAD Commit". Task di bawah jalan otomatis.
 #
-#  Struktur di server (aplikasi DI LUAR public_html — lebih aman):
-#    ~/jadisatu/     ← kode Laravel (.env, storage, vendor)
-#    ~/public_html/  ← document root (isi folder public/)
-#
-#  Path di-hardcode ke /home/jadj3934 — beberapa server cPanel tidak
-#  menyertakan $HOME saat menjalankan task deploy, jadi lebih aman pasti.
-#
-#  📋 SEMUA OUTPUT DITULIS KE  /home/jadj3934/deploy.log
-#     Buka lewat cPanel File Manager kalau deploy bermasalah.
-# ══════════════════════════════════════════════════════════════════════
-
+#  CATATAN:
+#   - Task ini berjalan DI DALAM folder repo (document root subdomain
+#     harus mengarah ke folder ini + /public).
+#   - Kalau `php` / `composer` tidak dikenal, ganti nilai PHP/COMPOSER
+#     di bawah dengan path lengkap dari hosting kamu, contoh:
+#       PHP="/opt/cpanel/ea-php82/root/usr/bin/php"
+#       COMPOSER="$PHP /home/USERNAME/composer.phar"
+#   - File .env di server TIDAK disentuh (aman, tetap pakai .env.production
+#     yang sudah ada di server).
+# ============================================================
 deployment:
   tasks:
-    # ─── Konfigurasi + deteksi path ─────────────────────────────────
-    - export APPDIR=/home/jadj3934/jadisatu
-    - export PUBDIR=/home/jadj3934/public_html
-    - export LOG=/home/jadj3934/deploy.log
-    - export PHP=$(command -v php || echo /usr/local/bin/php)
-    - export COMPOSER=$(command -v composer || echo /opt/cpanel/composer/bin/composer)
-
-    # ─── Mulai log ──────────────────────────────────────────────────
-    - date "+=== DEPLOY %Y-%m-%d %H:%M:%S ===" > $LOG
-    - echo "HOME     = $HOME"                  >> $LOG
-    - echo "APPDIR   = $APPDIR"                >> $LOG
-    - echo "PUBDIR   = $PUBDIR"                >> $LOG
-    - echo "PHP      = $PHP"                   >> $LOG
-    - $PHP -v 2>&1 | head -1                   >> $LOG
-    - echo "COMPOSER = $COMPOSER"              >> $LOG
-
-    # ─── Siapkan folder tujuan ──────────────────────────────────────
-    - /bin/mkdir -p $APPDIR $PUBDIR
-    - /bin/mkdir -p $APPDIR/storage/app/public
-    - /bin/mkdir -p $APPDIR/storage/framework/cache/data
-    - /bin/mkdir -p $APPDIR/storage/framework/sessions
-    - /bin/mkdir -p $APPDIR/storage/framework/views
-    - /bin/mkdir -p $APPDIR/storage/logs
-    - /bin/mkdir -p $APPDIR/bootstrap/cache
-
-    # ─── Cek .env (wajib, di-upload manual sekali) ───────────────────
-    - echo "" >> $LOG
-    - test -f $APPDIR/.env && echo "[OK] .env ditemukan" >> $LOG || echo "[GAGAL] .env TIDAK ADA di $APPDIR/.env — upload dulu lewat File Manager!" >> $LOG
-
-    # ─── Salin kode aplikasi ────────────────────────────────────────
-    #  storage/ dan .env SENGAJA tidak disalin — data upload & kredensial
-    #  di server harus tetap utuh setiap kali deploy.
-    - /bin/cp -R app config database resources routes $APPDIR/ >> $LOG 2>&1
-    - /bin/cp bootstrap/app.php bootstrap/providers.php $APPDIR/bootstrap/ >> $LOG 2>&1
-    - /bin/cp artisan composer.json composer.lock $APPDIR/ >> $LOG 2>&1
-    - echo "[OK] kode aplikasi tersalin" >> $LOG
-
-    # ─── Ekstrak public.tar.gz ke document root ─────────────────────
-    #  Bukan cp -R lagi: ratusan file kecil di public/ (terutama
-    #  public/build) bikin checkout di server rawan dianggap "dirty" dan
-    #  ditolak cPanel. Satu file arsip jauh lebih stabil dan lebih cepat.
-    - echo "--- ekstrak public.tar.gz ---" >> $LOG
-    - tar -xzf public.tar.gz -C $PUBDIR >> $LOG 2>&1
-    - test -f $PUBDIR/index.php && echo "[OK] public.tar.gz terekstrak" >> $LOG || echo "[GAGAL] public.tar.gz gagal ekstrak" >> $LOG
-
-    # ─── Buang halaman bawaan cPanel ────────────────────────────────
-    #  Apache mendahulukan index.html daripada index.php, jadi selama
-    #  file bawaan ini ada, domain akan terus menampilkan halaman default.
-    - /bin/rm -f $PUBDIR/index.html $PUBDIR/default.html
-
-    # ─── Arahkan index.php ke folder aplikasi ───────────────────────
-    #  __DIR__.'/../vendor'  →  __DIR__.'/../jadisatu/vendor'
-    - /bin/sed -i "s|__DIR__\.'/\.\./|__DIR__.'/../jadisatu/|g" $PUBDIR/index.php
-    - /bin/grep -c "jadisatu/vendor" $PUBDIR/index.php >> $LOG 2>&1
-    - echo "[OK] public_html terisi + index.php diarahkan" >> $LOG
-
-    # ─── Symlink storage publik (foto event yang di-upload) ─────────
-    - /bin/rm -rf $PUBDIR/storage
-    - /bin/ln -sfn $APPDIR/storage/app/public $PUBDIR/storage
-
-    # ─── Permission ─────────────────────────────────────────────────
-    - /bin/chmod -R 775 $APPDIR/storage $APPDIR/bootstrap/cache
-
-    # ─── Dependency PHP ─────────────────────────────────────────────
-    #  vendor.tar.gz ikut ter-commit di repo — bukan folder vendor/ biasa,
-    #  supaya checkout di server tidak perlu menyentuh ribuan file kecil.
-    #  Kalau arsipnya tidak ada, jatuh kembali ke composer install.
-    - echo "" >> $LOG
-    - test -f vendor.tar.gz && echo "--- ekstrak vendor.tar.gz ---" >> $LOG || echo "--- vendor.tar.gz tidak ada, jalankan composer ---" >> $LOG
-    - /bin/mkdir -p $APPDIR/vendor
-    - test -f vendor.tar.gz && tar -xzf vendor.tar.gz -C $APPDIR/vendor >> $LOG 2>&1 || (cd $APPDIR && $PHP $COMPOSER install --no-dev --optimize-autoloader --no-interaction >> $LOG 2>&1)
-    - test -f $APPDIR/vendor/autoload.php && echo "[OK] vendor terpasang" >> $LOG || echo "[GAGAL] vendor tidak terpasang — lihat pesan di atas" >> $LOG
-
-    # ─── Database ───────────────────────────────────────────────────
-    #  Keduanya idempoten: aman dijalankan berulang, tidak menduplikasi
-    #  data dan tidak menimpa konten yang sudah diedit lewat admin panel.
-    - echo "" >> $LOG
-    - echo "--- migrate ---" >> $LOG
-    - cd $APPDIR && $PHP artisan migrate --force >> $LOG 2>&1
-    - echo "--- seed ---" >> $LOG
-    - cd $APPDIR && $PHP artisan db:seed --force >> $LOG 2>&1
-
-    # ─── Bangun ulang cache ─────────────────────────────────────────
-    - echo "" >> $LOG
-    - cd $APPDIR && $PHP artisan optimize:clear >> $LOG 2>&1
-    - cd $APPDIR && $PHP artisan config:cache >> $LOG 2>&1
-    - cd $APPDIR && $PHP artisan route:cache >> $LOG 2>&1
-    - cd $APPDIR && $PHP artisan view:cache >> $LOG 2>&1
-
-    # ─── Ringkasan ──────────────────────────────────────────────────
-    - echo "" >> $LOG
-    - echo "--- isi public_html ---" >> $LOG
-    - /bin/ls $PUBDIR >> $LOG 2>&1
-    - date "+=== SELESAI %H:%M:%S ===" >> $LOG
+    - export PHP="php"
+    - export COMPOSER="composer"
+    # Mode maintenance selama deploy
+    - $PHP artisan down --retry=15 || true
+    # Install dependency produksi (tanpa dev, autoloader dioptimasi)
+    - $COMPOSER install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+    # Jalankan migrasi database (hapus baris ini kalau tidak mau auto-migrate)
+    - $PHP artisan migrate --force
+    # Bersihkan lalu bangun ulang cache
+    - $PHP artisan optimize:clear
+    - $PHP artisan config:cache
+    - $PHP artisan route:cache
+    - $PHP artisan view:cache
+    # Pastikan symlink storage ada (untuk file upload publik)
+    - $PHP artisan storage:link || true
+    # Selesai - keluar dari maintenance
+    - $PHP artisan up

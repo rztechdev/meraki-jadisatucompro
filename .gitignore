@@ -16,18 +16,17 @@
 /database/*.sqlite
 /database/*.sqlite-journal
 
-# CATATAN: vendor/ dan public/ TIDAK di-track individual lagi.
+# CATATAN: vendor/ dan public/ TIDAK ikut git sama sekali.
 # Ribuan file kecil di vendor/ bikin checkout di cPanel gampang dianggap
-# "uncommitted changes" (git status kotor) dan menolak deploy. Sekarang
-# keduanya dikemas jadi vendor.tar.gz dan public.tar.gz (lihat DEPLOY.md),
-# dan .cpanel.yml tinggal mengekstraknya di server.
-#
-# Untuk update salah satunya:
-#   tar -czf vendor.tar.gz -C vendor .
-#   tar -czf public.tar.gz -C public --exclude=storage --exclude=hot .
+# "uncommitted changes" dan deploy ditolak. Solusinya: vendor.zip dan
+# public.zip diupload MANUAL lewat cPanel File Manager lalu di-extract
+# pakai tombol Extract bawaan File Manager — lihat DEPLOY.md.
+# .zip-nya sendiri juga sengaja tidak ikut git (dibuat ulang tiap perlu).
 /vendor
 /public/*
 !/public/.gitkeep
+/vendor.zip
+/public.zip
 
 /storage/*.key
 /storage/pail
